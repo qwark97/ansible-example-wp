@@ -1,0 +1,67 @@
+---
+- hosts: wp_nodes
+  become: yes
+  vars:
+    EPEL_URL: https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    REMI_URL: https://rpms.remirepo.net/enterprise/remi-release-7.rpm
+    DB_NAME: "blog"
+    DB_USER: "blog"
+    DB_PASS: "blog!"
+  tasks: 
+    - name: "install EPEL repo"
+      yum:
+        name: "{{ EPEL_URL }}"
+        state: present
+    - name: "install remi repo"
+      yum:
+        name: "{{ REMI_URL }}"
+        state: present
+    - name: "install MariaDB repo"
+      copy:
+        src: files/Mariadb.repo
+        dest: /etc/yum.repos.d/MariaDB.repo
+    - name: "lets install some software"
+      yum:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - cowsay	
+        - httpd
+        - php72
+        - php72-php
+        - php72-php-mysql
+        - MariaDB-server
+        - MariaDB-client
+        - MySQL-python
+    - name: "create wp dest"
+      file:
+        path: /var/www/blog
+        state: directory
+    - name: "download wp"
+      unarchive:
+        src: https://pl.wordpress.org/latest-pl_PL.tar.gz
+        dest: /var/www/blog
+        remote_src: yes
+    - name: "put vhost conf int place"
+      copy:
+        src: files/blog-vh.conf
+        dest: /etc/httpd/conf.d/blog.conf
+    - name: "start my background services"
+      service:
+        name: httpd
+        state: restarted
+    - service:
+        name: mariadb
+        state: started
+    - name: "lets create blog DB"
+      mysql_db:
+        name: "{{ DB_NAME }}"
+        state: present
+    - name: "lets create DB user"  
+      mysql_user:
+        name: "{{ DB_USER }}"
+        password: "{{ DB_PASS }}"
+        priv: "{{ DB_NAME ~ '.*:ALL' }}"
+    -name: "put wp cfg into place"
+        src : templates/wp-config.php
+        dest: /vat/www/blog/wordpress/wp-config.php
